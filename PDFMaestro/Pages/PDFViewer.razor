@@ -1,0 +1,108 @@
+﻿@page "/pdf"
+
+@using System.IO
+@using System.Text
+@using PdfSharp.Pdf
+@using PdfSharp.Pdf.IO
+@using Microsoft.AspNetCore.Hosting
+@using PDFMaestro.Models
+@using PDFMaestro.Services.Interfaces
+@using Microsoft.AspNetCore.WebUtilities;
+@using Microsoft.Extensions.Primitives;
+@using Microsoft.AspNetCore.Http
+
+@inject NavigationManager _navManager
+@inject IWebHostEnvironment _hostingEnvironment
+@inject IHttpContextAccessor _httpContextAccessor
+@inject IGetSwapiCharacterFromDB _getCharacterFromDBService
+
+@code {
+
+    private string fileName { get; set; }
+
+    private int currentID { get; set; }
+
+    private SwapiCharacterModel Character = new SwapiCharacterModel();
+
+    public PdfDocument document { get; set; } = new PdfDocument();
+
+    protected override async Task OnInitializedAsync()
+    {
+        StringValues id;
+        var uri = _navManager.ToAbsoluteUri(_navManager.Uri);
+
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("id", out id))
+        {
+            currentID = Convert.ToInt32(id);
+        }
+
+        await GetData();
+    }
+
+    private async Task GetData()
+    {
+        Character = await _getCharacterFromDBService.GetModelFromDB(currentID);
+
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+        fileName = $"{ _hostingEnvironment.WebRootPath }\\pdf\\template.pdf";
+
+        document = PdfReader.Open(fileName, PdfDocumentOpenMode.Modify);
+
+        int i = 0;
+        foreach (var item in document.AcroForm.Fields)
+        {
+            var fields = document.AcroForm.Fields.Elements;
+
+            if (document.AcroForm.Fields[i].Name == "Text 4")
+            {
+                document.AcroForm.Fields[i].Value = new PdfString($"{Character.Name.ToUpper()}");
+            }
+
+            if (document.AcroForm.Fields[i].Name == "Text 6")
+            {
+                document.AcroForm.Fields[i].Value = new PdfString($"{Character.BirthYear}");
+            }
+
+            if (document.AcroForm.Fields[i].Name == "Text 7")
+            {
+                document.AcroForm.Fields[i].Value = new PdfString($"{Character.Gender}");
+            }
+
+            if (document.AcroForm.Fields[i].Name == "Text 8")
+            {
+                document.AcroForm.Fields[i].Value = new PdfString($"{Character.Weight}");
+            }
+
+            if (document.AcroForm.Fields[i].Name == "Text 9")
+            {
+                document.AcroForm.Fields[i].Value = new PdfString($"{Character.Height}");
+            }
+
+            document.AcroForm.Fields[i].ReadOnly = true;
+            i += 1;
+
+        }
+
+        if (document.AcroForm.Elements.ContainsKey("/NeedAppearances"))
+        {
+            document.AcroForm.Elements["/ NeedAppearances"] = new PdfBoolean(true);
+        }
+        else
+        {
+            document.AcroForm.Elements.Add("/NeedAppearances", new PdfBoolean(true));
+        }
+
+
+        byte[] fileContents = null;
+        using var stream = new MemoryStream();
+
+        document.Save(stream, true);
+        fileContents = stream.ToArray();
+
+        _httpContextAccessor.HttpContext.Response.Clear();
+        _httpContextAccessor.HttpContext.Response.ContentType = "application/pdf";
+        await _httpContextAccessor.HttpContext.Response.BodyWriter.WriteAsync(fileContents);
+    }
+
+}

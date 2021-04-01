@@ -1,0 +1,65 @@
+﻿@page "/"
+
+@using PDFMaestro.Models
+@using PDFMaestro.Services.Interfaces
+
+@inject IJSRuntime JS
+@inject ISwapiService _swapiService
+@inject NavigationManager NavigationManager
+@inject ISaveSwapiModelToDB _saveSwapiModelService
+
+<h1 class="m-5">PDF Maestro - Swapi edition</h1>
+
+<div class="container m-5">
+    <div class="row">
+        <div class="col-md-4">
+            <label for="id">Search by ID</label>
+            <div class="input-group">
+                <input type="number" min="1" max="20" @bind="ID" class="form-control" id="id" placeholder="4">
+                <div class="input-group-append">
+                    <button class="buttonload btn btn-primary" @onclick="GetSwapiCharacterAsync" style="outline: none; box-shadow: none;">Fetch Data</button>
+                </div>
+
+                <h3 style="margin-top: 1em;">Swapi Character Info</h3>
+                <div class="row">
+                    <label for="fabrikat">Name</label>
+                    <input type="text" class="form-control" id="fabrikat" placeholder="Name" value="@CharacterModel.Name">
+                    <label for="modellbet">Birth Year</label>
+                    <input type="text" class="form-control" id="modellbet" placeholder="Birth Year" value="@CharacterModel.BirthYear">
+                    <label for="modellbet">Height in cm</label>
+                    <input type="text" class="form-control" id="modellbet" placeholder="cm" value="@CharacterModel.Height">
+                    <label for="modellbet">Weight in kg</label>
+                    <input type="text" class="form-control" id="modellbet" placeholder="kg" value="@CharacterModel.Weight">
+                    <label for="modellbet">Gender</label>
+                    <input type="text" class="form-control" id="modellbet" placeholder="Gender" value="@CharacterModel.Gender">
+                </div>
+                <div class="text-center mt-5">
+                    <button class="btn btn-primary" @onclick="GeneratePDF" style="outline: none; box-shadow: none;">Generate PDF</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+@code {
+
+    private SwapiCharacterModel CharacterModel = new SwapiCharacterModel();
+
+    private int ID { get; set; }
+
+    private async Task GetSwapiCharacterAsync()
+    {
+        CharacterModel = await _swapiService.GetSwapiCharacter(ID);
+    }
+
+    private async Task GeneratePDF()
+    {
+        var pdfID = await _saveSwapiModelService.AddSwapiCharacterToDB(CharacterModel);
+
+        await JS.InvokeVoidAsync("blazorOpen", "pdf?id=" + pdfID, "_blank");
+    }
+
+}
